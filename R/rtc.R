@@ -8,18 +8,24 @@ rtc.tree.clustering <- function(ds, nsamples=20, limits=NULL) {
     if (!is.null(limits) && !is.list(limits)) {
         stop("limits must be a list")
     }
+    if (dim(ds)[1] > 0 && !is.null(limits) && length(limits) != dim(ds)[2]) {
+        stop("limits must have the same length as the number of parameters")
+    }
     for (range in limits) {
         if (!is.numeric(range)) {
             stop("invalid limits")
         }
     }
+    N <- dim(ds)[1]
+    K <- dim(ds)[2]
+
     opts <- list()
     opts$nsamples <- as.integer(nsamples)
-    .Call(
+    segmentation <- .Call(
         "rtc_tree_clustering",
         ds,
-        dim(ds)[1],
-        dim(ds)[2],
+        N,
+        K,
         limits,
         opts,
         PACKAGE="rtc"

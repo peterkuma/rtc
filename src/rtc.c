@@ -47,8 +47,6 @@ rtc_tree_clustering(SEXP Rds, SEXP RN, SEXP RK, SEXP limits, SEXP Ropts)
     opts.burnin = 0;
     opts.nsamples = INTEGER(getListElement(Ropts, "nsamples"))[0];
 
-    printf("%zu\n", opts.nsamples);
-
     result = PROTECT(allocVector(VECSXP, opts.nsamples));
     nprotected++;
 
@@ -69,20 +67,12 @@ rtc_tree_clustering(SEXP Rds, SEXP RN, SEXP RK, SEXP limits, SEXP Ropts)
     for (size_t k = 0; k < K; k++) {
         param_def[k].type = TC_METRIC;
         param_def[k].size = TC_FLOAT64;
-        if (!isNull(limits)) {
+        tc_param_def_init(&param_def[k], ds[k], N);
+        if (!isNull(limits) && length(limits) >= k) {
             Rrange = VECTOR_ELT(limits, k);
             param_def[k].min.float64 = REAL(Rrange)[0];
             param_def[k].max.float64 = REAL(Rrange)[1];
-        } else {
-            tc_param_def_init(&param_def[k], ds[k], N);
         }
-    }
-
-    for (size_t k = 0; k < K; k++) {
-        for (size_t n = 0; n < N; n++) {
-            printf("%lf, ", ((double *)ds[k])[n]);
-        }
-        printf("\n");
     }
 
     cb_data.ds = ds;
@@ -93,8 +83,6 @@ rtc_tree_clustering(SEXP Rds, SEXP RN, SEXP RK, SEXP limits, SEXP Ropts)
     if (res != 0) {
         error("Clustering failed");
     }
-    // //tc_dump_tree_simple(tree, NULL);
-    // free(tree);
 
 cleanup:
     UNPROTECT(nprotected);
@@ -145,10 +133,8 @@ cb(const struct tc_tree *tree, void *data_)
         SET_VECTOR_ELT(Rsegment, 0, ScalarInteger(segment->NX));
         SET_VECTOR_ELT(Rsegment, 1, ScalarReal(segment->V));
         SET_VECTOR_ELT(Rsegment, 2, Rranges);
-        // SET_VECTOR_ELT(Rsegment, 2, ScalarInteger(1));
         SET_VECTOR_ELT(Rsegments, s, Rsegment);
         UNPROTECT(2);
-        // UNPROTECT(1);
     }
 
     tc_free_segments(segments, S);
