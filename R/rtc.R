@@ -1,4 +1,5 @@
 rtc.tree.clustering <- function(ds, nsamples=20, limits=NULL) {
+    gctorture(TRUE)
     if (!is.data.frame(ds)) {
         stop("ds must be a data frame")
     }
@@ -30,4 +31,6 @@ rtc.tree.clustering <- function(ds, nsamples=20, limits=NULL) {
         opts,
         PACKAGE="rtc"
     )
+    gctorture(FALSE)
+    segmentation
 }

@@ -1,6 +1,8 @@
 #include <R.h>
 #include <Rinternals.h>
 #include <Rmath.h>
+#include <string.h>
+#include <errno.h>
 
 #include <tc.h>
 
@@ -56,8 +58,8 @@ rtc_tree_clustering(SEXP Rds, SEXP RN, SEXP RK, SEXP limits, SEXP Ropts)
 
     for (size_t k = 0; k < K; k++) {
         Rvec = PROTECT(coerceVector(VECTOR_ELT(Rds, k), REALSXP));
+        nprotected++;
         ds[k] = REAL(Rvec);
-        UNPROTECT(1);
     }
 
     param_def = calloc(K, sizeof(struct tc_param_def));
@@ -76,12 +78,13 @@ rtc_tree_clustering(SEXP Rds, SEXP RN, SEXP RK, SEXP limits, SEXP Ropts)
     }
 
     cb_data.ds = ds;
+    cb_data.n = 0;
     cb_data.N = N;
     cb_data.K = K;
     cb_data.result = result;
     res = tc_clustering(ds, N, param_def, K, cb, &cb_data, &opts);
     if (res != 0) {
-        error("Clustering failed");
+        error("Clustering failed: %s", strerror(errno));
     }
 
 cleanup:
@@ -92,13 +95,14 @@ cleanup:
 }
 
 static void
-cb(const struct tc_tree *tree, void *data_)
+cb(const struct tc_tree *tree, double l, const void **ds, size_t N, void *data_)
 {
     SEXP Rsegments;
     SEXP Rsegment;
     SEXP Rranges;
     SEXP Rrange;
     SEXP names;
+    SEXP Rsegmentation;
     size_t S = 0;
     struct tc_segment *segments = NULL;
     struct tc_segment *segment = NULL;
@@ -107,9 +111,16 @@ cb(const struct tc_tree *tree, void *data_)
     size_t k = 0;
 
     data = data_;
+
+    Rsegmentation = PROTECT(allocVector(VECSXP, 2));
+    names = PROTECT(allocVector(STRSXP, 2));
+    SET_STRING_ELT(names, 0, mkChar("segments"));
+    SET_STRING_ELT(names, 1, mkChar("likelihood"));
+    setAttrib(Rsegmentation, R_NamesSymbol, names);
+    UNPROTECT(1);
+
     segments = tc_segments(tree, data->ds, data->N, &S);
     Rsegments = PROTECT(allocVector(VECSXP, S));
-
     for (s = 0; s < S; s++) {
         segment = &segments[s];
 
@@ -136,11 +147,12 @@ cb(const struct tc_tree *tree, void *data_)
         SET_VECTOR_ELT(Rsegments, s, Rsegment);
         UNPROTECT(2);
     }
-
     tc_free_segments(segments, S);
     free(segments);
     segments = NULL;
 
-    SET_VECTOR_ELT(data->result, data->n++, Rsegments);
-    UNPROTECT(1);
+    SET_VECTOR_ELT(Rsegmentation, 0, Rsegments);
+    SET_VECTOR_ELT(Rsegmentation, 1, ScalarReal(l));
+    SET_VECTOR_ELT(data->result, data->n++, Rsegmentation);
+    UNPROTECT(2);
 }
