@@ -1,5 +1,16 @@
-rtc.tree.clustering <- function(ds, nsamples=20, limits=NULL) {
-    gctorture(TRUE)
+rtc.tree.clustering <- function(
+    ds,
+    nsamples=20,
+    burnin=0,
+    limits=NULL,
+    fragment.size=NULL,
+    max.segments=0
+) {
+    # gctorture(TRUE)
+
+    N <- dim(ds)[1]
+    K <- dim(ds)[2]
+
     if (!is.data.frame(ds)) {
         stop("ds must be a data frame")
     }
@@ -17,20 +28,33 @@ rtc.tree.clustering <- function(ds, nsamples=20, limits=NULL) {
             stop("invalid limits")
         }
     }
-    N <- dim(ds)[1]
-    K <- dim(ds)[2]
+    if (!is.null(fragment.size) && !is.numeric(fragment.size)) {
+        stop("fragment.size must be a numeric vector")
+    }
+    if (!is.null(fragment.size) && length(fragment.size) != K) {
+        stop("fragment.size must have the same length as the number of parameters")
+    }
+    if (!is.numeric(max.segments) || length(max.segments) != 1) {
+        stop("max.segments must be an integer")
+    }
+    if (!is.numeric(burnin) || length(burnin) != 1) {
+        stop("burnin must be an integer")
+    }
 
     opts <- list()
     opts$nsamples <- as.integer(nsamples)
+    opts$max.segments <- as.integer(max.segments)
+    opts$burnin <- as.integer(burnin)
     segmentation <- .Call(
         "rtc_tree_clustering",
         ds,
         N,
         K,
         limits,
+        fragment.size,
         opts,
         PACKAGE="rtc"
     )
-    gctorture(FALSE)
+    # gctorture(FALSE)
     segmentation
 }

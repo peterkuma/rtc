@@ -31,8 +31,14 @@ SEXP getListElement(SEXP list, const char *str)
 }
 
 SEXP
-rtc_tree_clustering(SEXP Rds, SEXP RN, SEXP RK, SEXP limits, SEXP Ropts)
-{
+rtc_tree_clustering(
+    SEXP Rds,
+    SEXP RN,
+    SEXP RK,
+    SEXP limits,
+    SEXP Rfragment_size,
+    SEXP Ropts
+) {
     SEXP rdim = getAttrib(Rds, R_DimSymbol);
     SEXP Rvec;
     SEXP Rrange;
@@ -48,6 +54,8 @@ rtc_tree_clustering(SEXP Rds, SEXP RN, SEXP RK, SEXP limits, SEXP Ropts)
 
     opts.burnin = 0;
     opts.nsamples = INTEGER(getListElement(Ropts, "nsamples"))[0];
+    opts.burnin = INTEGER(getListElement(Ropts, "burnin"))[0];
+    opts.max_segments = INTEGER(getListElement(Ropts, "max.segments"))[0];
 
     result = PROTECT(allocVector(VECSXP, opts.nsamples));
     nprotected++;
@@ -74,6 +82,9 @@ rtc_tree_clustering(SEXP Rds, SEXP RN, SEXP RK, SEXP limits, SEXP Ropts)
             Rrange = VECTOR_ELT(limits, k);
             param_def[k].min.float64 = REAL(Rrange)[0];
             param_def[k].max.float64 = REAL(Rrange)[1];
+        }
+        if (!isNull(Rfragment_size)) {
+            param_def[k].fragment_size = REAL(Rfragment_size)[k];
         }
     }
 
@@ -109,7 +120,6 @@ cb(const struct tc_tree *tree, double l, const void **ds, size_t N, void *data_)
     struct cb_data *data = NULL;
     size_t s = 0;
     size_t k = 0;
-
     data = data_;
 
     Rsegmentation = PROTECT(allocVector(VECSXP, 2));
@@ -120,6 +130,9 @@ cb(const struct tc_tree *tree, double l, const void **ds, size_t N, void *data_)
     UNPROTECT(1);
 
     segments = tc_segments(tree, data->ds, data->N, &S);
+    if (segments == NULL)
+        error("Clustering failed: %s", strerror(errno));
+
     Rsegments = PROTECT(allocVector(VECSXP, S));
     for (s = 0; s < S; s++) {
         segment = &segments[s];
@@ -135,8 +148,8 @@ cb(const struct tc_tree *tree, double l, const void **ds, size_t N, void *data_)
         Rranges = PROTECT(allocVector(VECSXP, data->K));
         for (k = 0; k < data->K; k++) {
             Rrange = PROTECT(allocVector(REALSXP, 2));
-            REAL(Rrange)[0] = segment->ranges[k].min.float64;
-            REAL(Rrange)[1] = segment->ranges[k].max.float64;
+            REAL(Rrange)[0] = segment->ranges[k].min;
+            REAL(Rrange)[1] = segment->ranges[k].max;
             SET_VECTOR_ELT(Rranges, k, Rrange);
             UNPROTECT(1);
         }
