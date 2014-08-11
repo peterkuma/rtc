@@ -3,8 +3,12 @@
 #include <Rmath.h>
 #include <string.h>
 #include <errno.h>
+#include <stdint.h>
 
 #include <tc.h>
+
+#define MIN(a, b) ((a) <= (b) ? (a) : (b))
+#define MAX(a, b) ((a) >= (b) ? (a) : (b))
 
 struct cb_data {
     size_t n;
@@ -43,6 +47,9 @@ rtc_tree_clustering(
     SEXP Rvec;
     SEXP Rrange;
     SEXP result;
+    SEXP result_new;
+    SEXP elt;
+    size_t i = 0;
     size_t N = INTEGER(RN)[0];
     size_t K = INTEGER(RK)[0];
     size_t nprotected = 0;
@@ -51,11 +58,15 @@ rtc_tree_clustering(
     struct tc_param_def *param_def = NULL;
     struct cb_data cb_data;
     struct tc_opts opts = tc_default_opts;
+    size_t burnin = 0;
+    size_t nsamples = 0;
 
-    opts.burnin = 0;
-    opts.nsamples = INTEGER(getListElement(Ropts, "nsamples"))[0];
-    opts.burnin = INTEGER(getListElement(Ropts, "burnin"))[0];
+    nsamples = INTEGER(getListElement(Ropts, "nsamples"))[0];
+    burnin = INTEGER(getListElement(Ropts, "burnin"))[0];
+
+    opts.nsamples = nsamples + burnin;
     opts.max_segments = INTEGER(getListElement(Ropts, "max.segments"))[0];
+    opts.maxiter = INTEGER(getListElement(Ropts, "maxiter"))[0];
 
     result = PROTECT(allocVector(VECSXP, opts.nsamples));
     nprotected++;
@@ -79,9 +90,10 @@ rtc_tree_clustering(
         param_def[k].size = TC_FLOAT64;
         tc_param_def_init(&param_def[k], ds[k], N);
         if (!isNull(limits) && length(limits) >= k) {
-            Rrange = VECTOR_ELT(limits, k);
+            Rrange = PROTECT(coerceVector(VECTOR_ELT(limits, k), REALSXP));
             param_def[k].min.float64 = REAL(Rrange)[0];
             param_def[k].max.float64 = REAL(Rrange)[1];
+            UNPROTECT(1);
         }
         if (!isNull(Rfragment_size)) {
             param_def[k].fragment_size = REAL(Rfragment_size)[k];
@@ -98,6 +110,17 @@ rtc_tree_clustering(
         error("Clustering failed: %s", strerror(errno));
     }
 
+    nsamples = MIN(cb_data.n, nsamples);
+    printf("n = %d, opts.nsamples = %d, nsamples = %d\n", cb_data.n, opts.nsamples, nsamples);
+    result_new = PROTECT(allocVector(VECSXP, nsamples));
+    nprotected++;
+    for (i = 0; i < nsamples; i++) {
+        elt = VECTOR_ELT(result, i + (cb_data.n - nsamples));
+        SET_VECTOR_ELT(result_new, i, elt);
+        SET_VECTOR_ELT(result, i, R_NilValue);
+    }
+    result = result_new;
+
 cleanup:
     UNPROTECT(nprotected);
     free(ds);
@@ -105,7 +128,7 @@ cleanup:
     return result;
 }
 
-static void
+static bool
 cb(const struct tc_tree *tree, double l, const void **ds, size_t N, void *data_)
 {
     SEXP Rsegments;
@@ -163,9 +186,10 @@ cb(const struct tc_tree *tree, double l, const void **ds, size_t N, void *data_)
     tc_free_segments(segments, S);
     free(segments);
     segments = NULL;
-
     SET_VECTOR_ELT(Rsegmentation, 0, Rsegments);
     SET_VECTOR_ELT(Rsegmentation, 1, ScalarReal(l));
     SET_VECTOR_ELT(data->result, data->n++, Rsegmentation);
     UNPROTECT(2);
+
+    return true;
 }

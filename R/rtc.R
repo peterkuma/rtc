@@ -2,9 +2,11 @@ rtc.tree.clustering <- function(
     ds,
     nsamples=20,
     burnin=0,
+    maxiter=0,
     limits=NULL,
     fragment.size=NULL,
-    max.segments=0
+    max.segments=0,
+    nruns=1
 ) {
     # gctorture(TRUE)
 
@@ -40,21 +42,31 @@ rtc.tree.clustering <- function(
     if (!is.numeric(burnin) || length(burnin) != 1) {
         stop("burnin must be an integer")
     }
+    if (!is.numeric(nruns) || length(nruns) != 1 || nruns <= 0) {
+        stop("nruns must be a positive integer")
+    }
+    if (!is.numeric(maxiter) || length(maxiter) != 1 || maxiter < 0) {
+        stop("maxiter must be a non-negative integer")
+    }
 
     opts <- list()
     opts$nsamples <- as.integer(nsamples)
     opts$max.segments <- as.integer(max.segments)
+    opts$maxiter <- as.integer(maxiter)
     opts$burnin <- as.integer(burnin)
-    segmentation <- .Call(
-        "rtc_tree_clustering",
-        ds,
-        N,
-        K,
-        limits,
-        fragment.size,
-        opts,
-        PACKAGE="rtc"
-    )
+
+    results <- lapply(seq(nruns), function(run) {
+        .Call(
+            "rtc_tree_clustering",
+            ds,
+            N,
+            K,
+            limits,
+            as.numeric(fragment.size),
+            opts,
+            PACKAGE="rtc"
+        )
+    })
     # gctorture(FALSE)
-    segmentation
+    unlist(results, recursive=FALSE)
 }
