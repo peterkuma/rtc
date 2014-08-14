@@ -7,6 +7,8 @@
 
 #include <tc.h>
 
+#define MAX_ERRSTR_LEN 512
+
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
 #define MAX(a, b) ((a) >= (b) ? (a) : (b))
 
@@ -60,6 +62,9 @@ rtc_tree_clustering(
     struct tc_opts opts = tc_default_opts;
     size_t burnin = 0;
     size_t nsamples = 0;
+    char errstr[MAX_ERRSTR_LEN];
+
+    errstr[0] = '\0';
 
     nsamples = INTEGER(getListElement(Ropts, "nsamples"))[0];
     burnin = INTEGER(getListElement(Ropts, "burnin"))[0];
@@ -72,8 +77,10 @@ rtc_tree_clustering(
     nprotected++;
 
     ds = calloc(K, sizeof(void *));
-    if (ds == NULL)
-        error("Allocation failed");
+    if (ds == NULL) {
+        snprintf(errstr, sizeof(errstr), "Allocation failed");
+        goto cleanup;
+    }
 
     for (size_t k = 0; k < K; k++) {
         Rvec = PROTECT(coerceVector(VECTOR_ELT(Rds, k), REALSXP));
@@ -82,8 +89,10 @@ rtc_tree_clustering(
     }
 
     param_def = calloc(K, sizeof(struct tc_param_def));
-    if (param_def == NULL)
-        error("Allocation failed");
+    if (param_def == NULL) {
+        snprintf(errstr, sizeof(errstr), "Allocation failed");
+        goto cleanup;
+    }
 
     for (size_t k = 0; k < K; k++) {
         param_def[k].type = TC_METRIC;
@@ -107,11 +116,11 @@ rtc_tree_clustering(
     cb_data.result = result;
     res = tc_clustering(ds, N, param_def, K, cb, &cb_data, &opts);
     if (res != 0) {
-        error("Clustering failed: %s", strerror(errno));
+        snprintf(errstr, sizeof(errstr), "Clustering failed: %s", strerror(errno));
+        goto cleanup;
     }
 
     nsamples = MIN(cb_data.n, nsamples);
-    printf("n = %d, opts.nsamples = %d, nsamples = %d\n", cb_data.n, opts.nsamples, nsamples);
     result_new = PROTECT(allocVector(VECSXP, nsamples));
     nprotected++;
     for (i = 0; i < nsamples; i++) {
@@ -125,6 +134,7 @@ cleanup:
     UNPROTECT(nprotected);
     free(ds);
     free(param_def);
+    if (*errstr) error(errstr);
     return result;
 }
 
