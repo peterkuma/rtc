@@ -100,9 +100,11 @@ rtc_tree_clustering(
         tc_param_def_init(&param_def[k], ds[k], N);
         if (!isNull(limits) && length(limits) >= k) {
             Rrange = PROTECT(coerceVector(VECTOR_ELT(limits, k), REALSXP));
+            nprotected++;
             param_def[k].min.float64 = REAL(Rrange)[0];
             param_def[k].max.float64 = REAL(Rrange)[1];
             UNPROTECT(1);
+            nprotected--;
         }
         if (!isNull(Rfragment_size)) {
             param_def[k].fragment_size = REAL(Rfragment_size)[k];
@@ -132,9 +134,12 @@ rtc_tree_clustering(
 
 cleanup:
     UNPROTECT(nprotected);
+    nprotected = 0;
     free(ds);
+    ds = NULL;
     free(param_def);
-    if (*errstr) error(errstr);
+    param_def = NULL;
+    if (*errstr) error("%s", errstr);
     return result;
 }
 
@@ -153,38 +158,55 @@ cb(const struct tc_tree *tree, double l, const void **ds, size_t N, void *data_)
     struct cb_data *data = NULL;
     size_t s = 0;
     size_t k = 0;
+    size_t nprotected = 0;
+    char errstr[MAX_ERRSTR_LEN];
+
+    errstr[0] = '\0';
     data = data_;
 
     Rsegmentation = PROTECT(allocVector(VECSXP, 2));
+    nprotected++;
     names = PROTECT(allocVector(STRSXP, 2));
+    nprotected++;
     SET_STRING_ELT(names, 0, mkChar("segments"));
     SET_STRING_ELT(names, 1, mkChar("likelihood"));
     setAttrib(Rsegmentation, R_NamesSymbol, names);
     UNPROTECT(1);
+    nprotected--;
 
     segments = tc_segments(tree, data->ds, data->N, &S);
-    if (segments == NULL)
-        error("Clustering failed: %s", strerror(errno));
+    if (segments == NULL) {
+        snprintf(errstr, sizeof(errstr), "Clustering failed: %s",
+            strerror(errno));
+        goto cleanup;
+    }
 
     Rsegments = PROTECT(allocVector(VECSXP, S));
+    nprotected++;
     for (s = 0; s < S; s++) {
         segment = &segments[s];
 
         Rsegment = PROTECT(allocVector(VECSXP, 3));
+        nprotected++;
         names = PROTECT(allocVector(STRSXP, 3));
+        nprotected++;
         SET_STRING_ELT(names, 0, mkChar("NX"));
         SET_STRING_ELT(names, 1, mkChar("V"));
         SET_STRING_ELT(names, 2, mkChar("ranges"));
         setAttrib(Rsegment, R_NamesSymbol, names);
         UNPROTECT(1);
+        nprotected--;
 
         Rranges = PROTECT(allocVector(VECSXP, data->K));
+        nprotected++;
         for (k = 0; k < data->K; k++) {
             Rrange = PROTECT(allocVector(REALSXP, 2));
+            nprotected++;
             REAL(Rrange)[0] = segment->ranges[k].min;
             REAL(Rrange)[1] = segment->ranges[k].max;
             SET_VECTOR_ELT(Rranges, k, Rrange);
             UNPROTECT(1);
+            nprotected--;
         }
 
         SET_VECTOR_ELT(Rsegment, 0, ScalarInteger(segment->NX));
@@ -192,14 +214,20 @@ cb(const struct tc_tree *tree, double l, const void **ds, size_t N, void *data_)
         SET_VECTOR_ELT(Rsegment, 2, Rranges);
         SET_VECTOR_ELT(Rsegments, s, Rsegment);
         UNPROTECT(2);
+        nprotected -= 2;
     }
-    tc_free_segments(segments, S);
-    free(segments);
-    segments = NULL;
     SET_VECTOR_ELT(Rsegmentation, 0, Rsegments);
     SET_VECTOR_ELT(Rsegmentation, 1, ScalarReal(l));
     SET_VECTOR_ELT(data->result, data->n++, Rsegmentation);
-    UNPROTECT(2);
 
+cleanup:
+    if (segments != NULL) {
+        tc_free_segments(segments, S);
+        free(segments);
+        segments = NULL;
+    }
+    UNPROTECT(nprotected);
+    nprotected = 0;
+    if (*errstr) error("%s", errstr);
     return true;
 }
