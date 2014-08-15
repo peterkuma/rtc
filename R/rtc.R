@@ -69,7 +69,7 @@ tree.clustering <- function(
             N,
             K,
             limits,
-            as.numeric(fragment.size),
+            fragment.size,
             opts,
             PACKAGE="rtc"
         )

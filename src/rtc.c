@@ -97,6 +97,10 @@ rtc_tree_clustering(
     for (size_t k = 0; k < K; k++) {
         param_def[k].type = TC_METRIC;
         param_def[k].size = TC_FLOAT64;
+        if (!isNull(Rfragment_size)) {
+            param_def[k].fragment_size =
+                REAL(coerceVector(Rfragment_size, REALSXP))[k];
+        }
         tc_param_def_init(&param_def[k], ds[k], N);
         if (!isNull(limits) && length(limits) >= k) {
             Rrange = PROTECT(coerceVector(VECTOR_ELT(limits, k), REALSXP));
@@ -105,9 +109,6 @@ rtc_tree_clustering(
             param_def[k].max.float64 = REAL(Rrange)[1];
             UNPROTECT(1);
             nprotected--;
-        }
-        if (!isNull(Rfragment_size)) {
-            param_def[k].fragment_size = REAL(Rfragment_size)[k];
         }
     }
 
