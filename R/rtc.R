@@ -1,8 +1,8 @@
-rtc.tree.clustering <- function(
+tree.clustering <- function(
     ds,
-    nsamples=20,
-    burnin=0,
-    maxiter=0,
+    nsamples=1,
+    burnin=100,
+    maxiter=NULL,
     limits=NULL,
     fragment.size=NULL,
     max.segments=0,
@@ -45,8 +45,15 @@ rtc.tree.clustering <- function(
     if (!is.numeric(nruns) || length(nruns) != 1 || nruns <= 0) {
         stop("nruns must be a positive integer")
     }
-    if (!is.numeric(maxiter) || length(maxiter) != 1 || maxiter < 0) {
+    if (
+        !is.null(maxiter) &&
+        (!is.numeric(maxiter) || length(maxiter) != 1 || maxiter < 0)
+    ) {
         stop("maxiter must be a non-negative integer")
+    }
+
+    if (is.null(maxiter)) {
+        maxiter <- (nsamples + burnin)*1000
     }
 
     opts <- list()
