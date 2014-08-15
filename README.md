@@ -9,4 +9,4 @@ and returned as a partitioning of the parameter space into rectangular segments.
 This package uses the [libtc](https://bitbucket.org/pkuma/libtc) library.
 
 * License: Proprietary
-* Reference manual: [rtc.pdf](rtc.pdf)
+* Reference manual: [/pkuma/rtc/src/master/rtc.pdf](rtc.pdf)
