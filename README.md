@@ -31,3 +31,9 @@ or manually:
     R CMD INSTALL rtc
 
 See the reference manual for information about usage.
+
+Thanks
+------
+
+This library was developed thanks to the support of PIXEL FEDERATION, s.r.o.
+
