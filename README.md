@@ -9,7 +9,7 @@ and returned as a partitioning of the parameter space into rectangular segments.
 This package uses the [libtc](https://github.com/peterkuma/libtc) library.
 
 * Depends: R (>= 2.15.1)
-* License: Proprietary
+* License: MIT License (see `LICENSE`)
 * Reference manual: [rtc.pdf](https://github.com/peterkuma/rtc/raw/master/rtc.pdf)
 
 Installation
